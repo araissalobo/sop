@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnóstico de Direção Editorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4F3;--surface:#FFF;--ink:#14211F;--muted:#5C6B68;
+  --accent:#1F5F5B;--accent-soft:#E3ECEA;--rule:#D6DDDA;--flag:#8A5A2B;
+  --serif:'IBM Plex Serif',Georgia,serif;--sans:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;padding-bottom:60px}
+#gauge{position:fixed;top:0;left:0;right:0;height:44px;background:rgba(242,244,243,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule);z-index:50;display:flex;align-items:center;gap:14px;padding:0 20px}
+#gauge .track{flex:1;height:2px;background:var(--rule);position:relative;overflow:hidden}
+#gauge .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);transition:width .35s cubic-bezier(.2,.8,.3,1)}
+#gauge .num{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.wrap{max-width:700px;margin:0 auto;padding:88px 20px 0}
+h1{font-family:var(--serif);font-weight:600;font-size:30px;line-height:1.2;letter-spacing:-.015em;margin:0 0 8px}
+h2{font-family:var(--serif);font-weight:600;font-size:21px;margin:0 0 4px}
+h3{font-family:var(--serif);font-weight:600;font-size:17px;margin:0 0 6px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+p{margin:0 0 14px}
+.lede{font-size:17px;color:var(--muted)}
+.note{font-size:14px;color:var(--muted)}
+section{background:var(--surface);border:1px solid var(--rule);padding:30px 26px;margin:0 0 20px}
+section.intro{background:transparent;border:0;padding:0 0 8px}
+.sechead{border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:22px}
+label.q{display:block;margin:0 0 24px}
+label.q .qt{display:block;font-weight:500;margin-bottom:4px}
+label.q .qh{display:block;font-size:14px;color:var(--muted);margin-bottom:10px}
+input[type=text],textarea,select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);padding:11px 12px;border-radius:0}
+textarea{min-height:110px;resize:vertical;line-height:1.6}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;background:var(--surface)}
+.block{margin:0 0 30px}
+.blockmark{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--rule);padding-bottom:7px;margin-bottom:8px}
+.blockends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 2px 14px;font-family:var(--mono)}
+fieldset.item{border:0;margin:0;padding:13px 0 15px 14px;border-left:2px solid transparent;transition:border-color .25s}
+fieldset.item.done{border-left-color:var(--accent)}
+fieldset.item legend{padding:0;display:block;width:100%}
+.itemrow{display:flex;gap:12px;align-items:baseline;margin-bottom:12px}
+.itemnum{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:24px;font-variant-numeric:tabular-nums}
+.itemtext{font-size:16px;line-height:1.45}
+.scale{display:flex;position:relative;padding:0 2px}
+.scale::before{content:"";position:absolute;left:19px;right:19px;top:50%;height:1px;background:var(--rule)}
+.stop{position:relative;flex:1;display:flex;justify-content:center}
+.stop input{position:absolute;opacity:0;width:38px;height:38px;margin:0;cursor:pointer}
+.dot{width:15px;height:15px;border-radius:50%;background:var(--paper);border:1.5px solid var(--rule);position:relative;z-index:1;transition:transform .18s cubic-bezier(.34,1.4,.5,1),background .18s,border-color .18s}
+.stop input:hover+.dot{border-color:var(--accent)}
+.stop input:focus-visible+.dot{outline:2px solid var(--accent);outline-offset:3px}
+.stop input:checked+.dot{background:var(--accent);border-color:var(--accent);transform:scale(1.3);box-shadow:0 0 0 4px var(--accent-soft)}
+button{font:inherit;font-weight:500;font-size:16px;background:var(--accent);color:#fff;border:0;padding:15px 26px;cursor:pointer;width:100%;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{background:var(--rule);color:var(--muted);cursor:not-allowed}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-top:10px}
+#pending{background:#FBF6EE;border:1px solid #E6D5BC;padding:14px 16px;margin-bottom:14px;font-size:14px;display:none}
+#pending a{color:var(--flag);cursor:pointer;text-decoration:underline;margin-right:10px;font-family:var(--mono);font-size:13px}
+.status{padding:13px 15px;margin:18px 0 0;font-size:14px;border:1px solid var(--rule);background:var(--paper)}
+.status.ok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.status.fail{background:#FBF6EE;border-color:#E6D5BC;color:var(--flag)}
+#result{display:none}
+@media print{#gauge,section.intro,.vid,#gen,#pending,.saved,#pr,#dl,.status{display:none!important}
+  body{padding:0;background:#fff}.wrap{padding:0;max-width:100%}
+  section{border:0;padding:0}.pilar{page-break-inside:avoid}}
+.saved{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:6px 0 20px}
+.vid{background:var(--ink);color:#fff;padding:26px;margin-bottom:20px}
+.vid .ph{border:1px dashed rgba(255,255,255,.3);padding:38px 20px;text-align:center;font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.55);letter-spacing:.06em}
+/* resultado */
+.pilar{border:1px solid var(--rule);padding:24px 22px;margin-bottom:16px;background:var(--surface)}
+.pilar .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.angulo{background:var(--accent-soft);border-left:3px solid var(--accent);padding:13px 15px;margin:14px 0;font-size:15px}
+.angulo strong{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:5px;font-weight:500}
+.gat{margin:14px 0 0;padding-left:18px}
+.gat li{margin-bottom:7px;font-size:15px}
+.vartable{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px}
+.vartable td{border-bottom:1px solid var(--rule);padding:10px 6px;vertical-align:top}
+.vartable td:first-child{font-weight:500;width:42%}
+.warn{background:#FBF6EE;border:1px solid #E6D5BC;padding:15px 17px;margin:16px 0;font-size:14px}
+.dropbox{border:1px solid var(--rule);padding:18px 20px;margin:16px 0}
+.dropbox li{margin-bottom:6px}
+@media(max-width:560px){.wrap{padding-top:78px}section,.pilar{padding:22px 17px}h1{font-size:25px}.dot{width:19px;height:19px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="gauge"><span class="num" id="gnum">0 / 36</span><div class="track"><div class="fill" id="gfill"></div></div><span class="num" id="gpct">0%</span></div>
+<div class="wrap">
+
+<section class="intro">
+  <p class="eyebrow">Diagnóstico de direção editorial</p>
+  <h1>Você não precisa aprender a postar. Precisa saber o que postar.</h1>
+  <p class="lede">A maioria das especialistas trava não porque não sabe fazer conteúdo, mas porque não sabe sobre o que falar para atrair quem compra. E a resposta não é a mesma para todo mundo.</p>
+  <p class="note">Este diagnóstico leva de 10 a 15 minutos. No fim, você recebe seus cinco pilares de conteúdo, o ângulo que funciona para o seu jeito de comunicar, os formatos que você sustenta, os que você vai abandonar, e a frequência realista para a sua rotina.</p>
+</section>
+
+
+
+<section>
+  <div class="sechead"><p class="eyebrow">Parte 1</p><h2>Sobre você</h2></div>
+  <label class="q"><span class="qt">Seu nome</span><input type="text" id="nome"></label>
+  <label class="q"><span class="qt">Seu e-mail</span><input type="text" id="email"></label>
+  <label class="q"><span class="qt">Sua profissão e especialidade</span><span class="qh">Seja específica. "Advogada de imigração para os EUA" diz muito mais que "advogada".</span><input type="text" id="prof"></label>
+  <label class="q">
+    <span class="qt">Sua profissão é regulada por conselho de classe?</span>
+    <span class="qh">OAB, COREN, CRP, CRN, CRO, CRM, CRC, CREFITO e similares.</span>
+    <select id="conselho"><option value="">Selecione</option><option value="Sim">Sim</option><option value="Não">Não</option></select>
+  </label>
+</section>
+
+<section>
+  <div class="sechead"><p class="eyebrow">Parte 2</p><h2>O que você sabe e para quem</h2></div>
+  <label class="q"><span class="qt">Quem é a pessoa que você mais gosta de atender?</span><span class="qh">Descreva a situação dela, não o perfil demográfico. Em que momento da vida ela procura alguém como você?</span><textarea id="publico"></textarea></label>
+  <label class="q"><span class="qt">Quais são os 3 erros que você mais corrige nas pessoas que atende?</span><span class="qh">Coisas que elas fazem, acreditam ou tentaram antes de chegar até você.</span><textarea id="erros"></textarea></label>
+  <label class="q"><span class="qt">O que você faz de um jeito diferente da maioria dos colegas da sua área?</span><textarea id="diferente"></textarea></label>
+  <label class="q"><span class="qt">Qual resultado concreto você já entregou e que te dá mais orgulho?</span><textarea id="resultado"></textarea></label>
+  <label class="q"><span class="qt">Que prática comum na sua área você acha que está errada ou ultrapassada?</span><textarea id="discordo"></textarea></label>
+</section>
+
+<section>
+  <div class="sechead"><p class="eyebrow">Parte 3</p><h2>Sua realidade de produção</h2></div>
+  <label class="q"><span class="qt">Quantas horas por semana você tem de fato para conteúdo?</span><span class="qh">Não em teoria. De fato.</span>
+    <select id="horas"><option value="">Selecione</option><option value="1">Menos de 2 horas</option><option value="2">De 2 a 4 horas</option><option value="3">De 5 a 8 horas</option><option value="4">Mais de 8 horas</option></select></label>
+  <label class="q"><span class="qt">Quanto tempo você leva para publicar um post que exige design?</span>
+    <select id="design"><option value="">Selecione</option><option value="1">Muito tempo — quase sempre acabo adiando</option><option value="2">Bastante tempo, mas eu faço</option><option value="3">Pouco tempo, é tranquilo</option><option value="4">Tenho alguém que faz para mim</option></select></label>
+  <label class="q"><span class="qt">Gravar um vídeo falando na câmera, para você, é:</span>
+    <select id="video"><option value="">Selecione</option><option value="1">Muito difícil — refaço várias vezes ou desisto</option><option value="2">Desconfortável, mas eu consigo</option><option value="3">Tranquilo</option><option value="4">Fácil — é o que eu mais gosto de fazer</option></select></label>
+  <label class="q"><span class="qt">O que você já começou e não sustentou? Em que semana parou?</span><span class="qh">Pode ser conteúdo, canal, projeto. Seja específica com o tempo.</span><textarea id="abandono"></textarea></label>
+</section>
+
+<section>
+  <div class="sechead"><p class="eyebrow">Parte 4 · 36 afirmações</p><h2>Como você funciona</h2></div>
+  <p class="note" style="margin-bottom:22px">Responda rápido, na primeira impressão. Não existe resposta certa — isso não mede qualidade nem capacidade. Mede onde cada formato custa mais caro para você.</p>
+  <div id="items"></div>
+</section>
+
+<div style="padding:6px 0 26px">
+  <div id="pending"></div>
+  <button id="gen" disabled>Ver meu diagnóstico</button>
+</div>
+
+<section id="result"></section>
+<p class="saved" id="savemsg"></p>
+</div>
+
+<script>
+
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycbznS0RJySpbbyLYzclmcWyE7YmXSwtY6rIkJ90mA-wVWd9zDEj_3jKvj4G5qEgvz5aysg/exec';
+
+const ITEMS = [[5,"Eu gosto de apreciar arte.","Estética",0],[6,"Música é uma parte importante da minha vida.","Estética",0],[7,"Desfruto de atividades culturais.","Estética",0],[8,"Não tenho interesse em aprender sobre diferentes formas de arte.","Estética",1],[17,"Gosto de ler livros desafiadores.","Ações Variadas",0],[18,"Gosto de mudar minha rotina.","Ações Variadas",0],[19,"Tenho curiosidade sobre diferentes assuntos.","Ações Variadas",0],[20,"Não gosto de aprender novas coisas.","Ações Variadas",1],[45,"Penso nas consequências antes de agir.","Ponderação",0],[46,"Sou cuidadosa ao tomar decisões.","Ponderação",0],[47,"Evito correr riscos desnecessários.","Ponderação",0],[48,"Agir sem pensar nas consequências é comum para mim.","Ponderação",1],[53,"Eu gosto de estar no centro das atenções.","Gregarismo",0],[54,"Gosto de participar de atividades sociais.","Gregarismo",0],[55,"Prefiro estar com outras pessoas do que sozinha.","Gregarismo",0],[56,"Não gosto de conhecer novas pessoas.","Gregarismo",1],[69,"Sinto-me frequentemente feliz e entusiasmada.","Emoções Positivas",0],[70,"Tenho uma perspectiva positiva da vida.","Emoções Positivas",0],[71,"Gosto de compartilhar minha alegria com os outros.","Emoções Positivas",0],[72,"Sou uma pessoa pessimista.","Emoções Positivas",1],[77,"Eu sou direta em minhas opiniões.","Franqueza",0],[78,"Falo o que penso.","Franqueza",0],[79,"Prefiro ser honesta do que diplomática.","Franqueza",0],[80,"Eu escondo meus sentimentos.","Franqueza",1],[89,"Eu não gosto de me gabar.","Modéstia",0],[90,"Prefiro manter um perfil baixo.","Modéstia",0],[91,"Não sou arrogante.","Modéstia",0],[92,"Eu me gabo frequentemente.","Modéstia",1],[97,"Eu me preocupo facilmente.","Ansiedade",0],[98,"Fico nervosa com frequência.","Ansiedade",0],[99,"Sou uma pessoa ansiosa.","Ansiedade",0],[100,"Tenho facilidade em relaxar.","Ansiedade",1],[109,"Eu me preocupo com o que os outros pensam de mim.","Constrangimento",0],[110,"Sou sensível às críticas.","Constrangimento",0],[111,"Fico autoconsciente em situações sociais.","Constrangimento",0],[112,"Não me importo com a minha imagem.","Constrangimento",1]];
+const KEY='dir_editorial_v1';
+const CTX=['nome','email','prof','conselho','publico','erros','diferente','resultado','discordo','horas','design','video','abandono'];
+const FAC=['Franqueza','Modéstia','Gregarismo','Emoções Positivas','Estética','Ponderação','Ações Variadas','Constrangimento','Ansiedade'];
+
+let store={a:{},order:null,t0:null};
+try{const r=localStorage.getItem(KEY);if(r)store=Object.assign(store,JSON.parse(r));}catch(e){}
+if(!store.t0)store.t0=Date.now();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store));document.getElementById('savemsg').textContent='Salvo neste navegador';}catch(e){document.getElementById('savemsg').textContent='Não foi possível salvar. Termine sem fechar esta aba.';}}
+
+function rng(s){return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+if(!store.order){const r=rng(Math.floor(Math.random()*1e9));const ix=ITEMS.map((_,i)=>i);
+  for(let i=ix.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[ix[i],ix[j]]=[ix[j],ix[i]];}store.order=ix;}
+
+const LB=['Discordo totalmente','Discordo','Neutro','Concordo','Concordo totalmente'];
+let h='';
+store.order.forEach((ii,pos)=>{
+  if(pos%9===0){if(pos>0)h+='</div>';h+='<div class="block"><div class="blockmark">'+(pos+1)+' – '+Math.min(pos+9,36)+' de 36</div><div class="blockends"><span>← discordo totalmente</span><span>concordo totalmente →</span></div>';}
+  const it=ITEMS[ii];
+  h+='<fieldset class="item" id="f'+it[0]+'"><legend><div class="itemrow"><span class="itemnum">'+String(pos+1).padStart(2,'0')+'</span><span class="itemtext">'+it[1]+'</span></div></legend><div class="scale">';
+  for(let v=1;v<=5;v++)h+='<span class="stop"><input type="radio" name="q'+it[0]+'" value="'+v+'" aria-label="'+LB[v-1]+'"><span class="dot"></span></span>';
+  h+='</div></fieldset>';
+});
+h+='</div>';
+document.getElementById('items').innerHTML=h;
+
+CTX.forEach(f=>{const el=document.getElementById(f);if(el&&store.a[f]!==undefined)el.value=store.a[f];});
+ITEMS.forEach(it=>{const v=store.a['q'+it[0]];if(v){const el=document.querySelector('input[name="q'+it[0]+'"][value="'+v+'"]');if(el){el.checked=true;document.getElementById('f'+it[0]).classList.add('done');}}});
+
+function answered(){return ITEMS.filter(it=>store.a['q'+it[0]]).length;}
+function ctxOk(){return ['nome','email','prof','conselho','publico','erros','diferente','resultado','discordo','horas','design','video'].every(f=>store.a[f]&&String(store.a[f]).trim());}
+function upd(){const n=answered();const p=Math.round(n/36*100);
+  document.getElementById('gnum').textContent=n+' / 36';document.getElementById('gpct').textContent=p+'%';
+  document.getElementById('gfill').style.width=p+'%';
+  document.getElementById('gen').disabled=!(n===36&&ctxOk());}
+
+document.getElementById('items').addEventListener('change',e=>{if(e.target.type!=='radio')return;
+  store.a[e.target.name]=parseInt(e.target.value,10);
+  document.getElementById('f'+e.target.name.slice(1)).classList.add('done');save();upd();});
+CTX.forEach(f=>{const el=document.getElementById(f);if(!el)return;
+  const fn=()=>{store.a[f]=el.value;save();upd();};el.addEventListener('input',fn);el.addEventListener('change',fn);});
+
+function showPending(){
+  const m=[];store.order.forEach((ii,pos)=>{const id=ITEMS[ii][0];if(!store.a['q'+id])m.push([pos+1,id]);});
+  const b=document.getElementById('pending');
+  const faltaCtx=!ctxOk();
+  if(!m.length&&!faltaCtx){b.style.display='none';return;}
+  b.style.display='block';
+  b.innerHTML=(faltaCtx?'<strong>Faltam campos nas partes 1 a 3.</strong><br>':'')+
+    (m.length?'<strong>Faltam '+m.length+' afirmações.</strong><br>Ir para: '+m.slice(0,10).map(x=>'<a data-go="'+x[1]+'">'+String(x[0]).padStart(2,'0')+'</a>').join(''):'');
+}
+document.getElementById('pending').addEventListener('click',e=>{const id=e.target.getAttribute('data-go');if(!id)return;
+  const el=document.getElementById('f'+id);el.scrollIntoView({block:'center',behavior:'smooth'});el.querySelector('input').focus();});
+
+function score(){const f={};FAC.forEach(x=>f[x]=0);
+  ITEMS.forEach(it=>{const v=store.a['q'+it[0]];f[it[2]]+=it[3]?(6-v):v;});return f;}
+const band=v=>v<=9?'baixa':(v<=15?'média':'alta');
+
+// ---------- lógica de direção ----------
+function derive(f){
+  const a=store.a;
+  const ctxDesign=parseInt(a.design||2,10), ctxVideo=parseInt(a.video||2,10), ctxHoras=parseInt(a.horas||2,10);
+  const d={};
+
+  // exposição pessoal
+  const fr=band(f['Franqueza']), mo=band(f['Modéstia']);
+  d.exposicao = (fr==='alta'&&mo!=='alta') ? 'alta' : (fr==='baixa'||mo==='alta' ? 'baixa' : 'média');
+
+  // presença ao vivo — traço + comportamento declarado (comportamento pesa mais)
+  const gr=band(f['Gregarismo']), ep=band(f['Emoções Positivas']), co=band(f['Constrangimento']);
+  let vivo = (gr!=='baixa'&&ep!=='baixa'&&co!=='alta') ? 'alta' : (co==='alta'||gr==='baixa' ? 'baixa' : 'média');
+  if(ctxVideo<=1) vivo='baixa';
+  if(ctxVideo>=4&&vivo==='baixa') vivo='média';
+  d.vivo=vivo;
+
+  // custo de acabamento — contexto declarado domina
+  d.acabamento = ctxDesign<=1 ? 'proibitivo' : (ctxDesign===2 ? 'alto' : (ctxDesign===4 ? 'terceirizado' : 'baixo'));
+  d.retrabalho = (band(f['Ponderação'])==='alta' && band(f['Estética'])==='alta');
+
+  // rotação
+  d.rotacao = band(f['Ações Variadas']);
+
+  // tolerância a crítica
+  const an=band(f['Ansiedade']);
+  d.critica = (co==='alta'||an==='alta') ? 'baixa' : (co==='baixa'&&an==='baixa' ? 'alta' : 'média');
+
+  d.horas=ctxHoras; d.conselho=(a.conselho==='Sim');
+  return d;
+}
+
+function pilares(d){
+  const P=[];
+
+  // 1 — erro comum
+  P.push({t:'Erro comum de quem você atende',
+    tag:'Pilar 1 · atração',
+    o:'É o pilar que mais atrai gente nova, porque a pessoa se reconhece no erro antes de conhecer você.',
+    ang: d.exposicao==='alta'
+      ? {n:'Direto e nominal',x:'Aponte o erro com clareza e diga por que ele acontece. Seu perfil sustenta afirmação direta sem parecer agressiva — use isso, é vantagem competitiva.'}
+      : (d.critica==='baixa'
+        ? {n:'Explicativo, sem culpado',x:'Não diga "você está fazendo errado". Diga "por que isso acontece com tanta gente". O conteúdo é o mesmo, o custo emocional é menor — e você não precisa sustentar confronto nos comentários.'}
+        : {n:'Observacional',x:'Fale a partir do que você vê acontecer na prática: "isso aparece muito no consultório". Observação não exige defesa, opinião exige.'}),
+    g:['Quais 3 erros você mais corrige? Cada um é um conteúdo.',
+       'O que a pessoa faz antes de te procurar, achando que está ajudando?',
+       'Qual conselho popular da sua área faz mais gente errar?',
+       'O que as pessoas costumam tentar sozinhas e piorar?',
+       'Qual pergunta você mais recebe e que já revela um erro de premissa?']});
+
+  // 2 — bastidor
+  P.push({t:'Bastidor do seu processo',
+    tag:'Pilar 2 · confiança',
+    o:'É o pilar que constrói confiança. Mostrar como você trabalha vale mais que dizer que você é boa.',
+    ang: d.exposicao==='alta'
+      ? {n:'Pessoal',x:'Você pode aparecer no bastidor: rotina, decisões, o que passou pela sua cabeça. Seu perfil sustenta exposição pessoal sem custo alto.'}
+      : {n:'Processo, não pessoa',x:'Mostre a etapa, não a sua intimidade. "Como funciona a primeira consulta", "o que eu olho antes de decidir X". Você constrói proximidade sem se expor — e sem o desgaste que exposição pessoal te cobraria.'},
+    g:['Descreva uma etapa do seu atendimento que ninguém vê.',
+       'O que você faz antes de atender que a pessoa não imagina?',
+       'Qual decisão você toma no meio do processo e por quê?',
+       'Que ferramenta ou critério você usa e ninguém conhece?',
+       'O que mudou no seu jeito de trabalhar nos últimos anos?']});
+
+  // 3 — prova
+  P.push({t:'Prova de resultado',
+    tag:'Pilar 3 · conversão',
+    o:'É o pilar que converte. Sem ele, o resto vira conteúdo educativo que não vende.',
+    ang: d.exposicao==='alta'
+      ? {n:'Assinado por você',x:'Você pode assinar o resultado diretamente. Seu perfil não paga caro por isso.'}
+      : {n:'Cliente protagonista',x:'A pessoa atendida é a heroína; você é quem conduziu. "Ela chegou assim e hoje está assim." Isso funciona melhor para o seu perfil — autopromoção direta te custaria caro e provavelmente você adiaria a publicação.'},
+    g:['Descreva um caso pelo ponto de partida, não pelo resultado.',
+       'Que dúvida a pessoa tinha antes de começar com você?',
+       'O que mudou na rotina dela — não no número?',
+       'Que objeção ela tinha e como foi superada?',
+       'Qual foi o momento em que ela percebeu que estava dando certo?']});
+
+  // 4 — opinião
+  P.push({t:'Sua leitura do mercado',
+    tag:'Pilar 4 · diferenciação',
+    o:'É o pilar que te separa dos colegas. Sem ele, você é tecnicamente boa e indistinguível.',
+    ang: d.critica==='alta'
+      ? {n:'Tese assumida',x:'Você pode defender posição contrária ao consenso e sustentar o debate. Seu perfil aguenta o custo — e é onde você mais se diferencia.'}
+      : (d.critica==='média'
+        ? {n:'Contraste ancorado',x:'Contraponha a prática comum a evidência, dado ou norma técnica — não à sua opinião pessoal. A tensão fica no argumento, não em você, e você não precisa sustentar confronto pessoal.'}
+        : {n:'Observação, não tese',x:'Formule como constatação do que você vê acontecer, nunca como bandeira. "O que eu observo é que..." em vez de "eu defendo que...". Você mantém a diferenciação e não paga o preço de ter que defender posição publicamente — que no seu perfil custaria dias de ruminação.'}),
+    g:['Que prática comum na sua área você acha ultrapassada?',
+       'O que todo mundo repete e você discorda em silêncio?',
+       'Que resultado o mercado promete e você sabe que não se sustenta?',
+       'O que mudou na sua área e ainda não chegou na prática da maioria?',
+       'Que pergunta ninguém está fazendo e deveria?']});
+
+  // 5 — educação
+  P.push({t:'Educação técnica',
+    tag:'Pilar 5 · autoridade',
+    o:'É o pilar mais seguro e o que mais sustenta autoridade ao longo do tempo. É onde sua formação vira vantagem.',
+    ang: d.rotacao==='alta'
+      ? {n:'Assuntos rotativos',x:'Seu perfil precisa de novidade para não abandonar. Varie o assunto dentro do pilar, mantendo a estrutura fixa — assim você tem estímulo sem trocar de estratégia.'}
+      : {n:'Mesmo tema, ângulos diferentes',x:'Você sustenta repetição melhor que a média, e isso é vantagem: profundidade constrói autoridade mais rápido que variedade. Escolha 2 ou 3 assuntos e explore por meses.'},
+    g:['O que você explica toda semana para as pessoas que atende?',
+       'Que conceito da sua área é sempre mal compreendido?',
+       'O que você aprendeu na formação que quase ninguém aplica?',
+       'Que pergunta simples tem resposta mais complexa do que parece?',
+       'O que a pessoa precisa entender antes de decidir procurar você?']});
+  return P;
+}
+
+function formatos(d){
+  const s=[],n=[];
+  if(d.vivo==='alta'){s.push('Vídeo falado, direto na câmera');s.push('Stories em série, sem edição');s.push('Live e conteúdo ao vivo');}
+  else if(d.vivo==='média'){s.push('Vídeo falado gravado, com corte simples');s.push('Stories em blocos, gravados em lote');n.push('Live e conteúdo ao vivo sem roteiro');}
+  else{s.push('Carrossel de texto, em template fixo');s.push('Post escrito e legenda longa');s.push('Vídeo com roteiro pronto e possibilidade de refazer');n.push('Live, improviso e qualquer formato ao vivo');n.push('Stories espontâneos ao longo do dia');}
+  if(d.acabamento==='proibitivo'){s.push('Formato cru: vídeo sem edição, texto sem arte');n.push('Carrossel desenhado feito por você');n.push('Qualquer peça que dependa de design elaborado');}
+  else if(d.acabamento==='alto'){s.push('Template fixo, montado uma vez e reutilizado');n.push('Identidade visual refeita a cada campanha');}
+  else if(d.acabamento==='terceirizado'){s.push('Carrossel e peças visuais — você já tem quem faça');}
+  if(d.retrabalho)n.push('Publicar sem critério objetivo de "pronto" — seu perfil tende a refazer indefinidamente');
+  if(d.critica==='baixa')n.push('Tema polarizador e debate público prolongado');
+  return {s,n};
+}
+
+function frequencia(d){
+  const base={1:'3 conteúdos por semana',2:'4 a 5 conteúdos por semana',3:'1 por dia útil',4:'1 a 2 por dia'}[d.horas]||'4 a 5 conteúdos por semana';
+  let piso;
+  if(d.vivo==='baixa') piso='1 conteúdo aprofundado por semana + 2 posts curtos';
+  else piso='2 vídeos falados por semana + stories em dias úteis';
+  return {base,piso};
+}
+
+function plain(f,d,P,F,FR){
+  const a=store.a, L=[];
+  L.push('DIAGNÓSTICO DE DIREÇÃO EDITORIAL');
+  L.push(new Date().toLocaleString('pt-BR'));
+  L.push('='.repeat(58));
+  L.push('');
+  L.push('Nome: '+(a.nome||'—'));
+  L.push('E-mail: '+(a.email||'—'));
+  L.push('Profissão: '+(a.prof||'—'));
+  L.push('Conselho de classe: '+(a.conselho||'—'));
+  L.push('');
+  L.push('## PERFIL DE COMUNICAÇÃO');
+  L.push('Exposição pessoal: '+d.exposicao);
+  L.push('Presença ao vivo: '+d.vivo);
+  L.push('Custo de acabamento visual: '+d.acabamento);
+  L.push('Necessidade de novidade: '+d.rotacao);
+  L.push('Tolerância a crítica pública: '+d.critica);
+  L.push('Risco de retrabalho: '+(d.retrabalho?'sim':'não'));
+  L.push('');
+  L.push('## FACETAS');
+  FAC.forEach(x=>L.push('  '+x.padEnd(22)+String(f[x]).padStart(3)+'  '+band(f[x])));
+  L.push('');
+  L.push('## OS 5 PILARES');
+  P.forEach((p,i)=>{
+    L.push('');
+    L.push((i+1)+'. '+p.t.toUpperCase());
+    L.push('   Ângulo: '+p.ang.n);
+    L.push('   '+p.ang.x);
+    L.push('   Perguntas-gatilho:');
+    p.g.forEach(g=>L.push('     - '+g));
+  });
+  L.push('');
+  L.push('## FORMATOS QUE VOCÊ SUSTENTA');
+  F.s.forEach(x=>L.push('  + '+x));
+  L.push('');
+  L.push('## FORMATOS QUE VOCÊ VAI ABANDONAR');
+  F.n.forEach(x=>L.push('  - '+x));
+  L.push('');
+  L.push('## FREQUÊNCIA');
+  L.push('Ritmo alvo: '+FR.base);
+  L.push('Piso do pior mês: '+FR.piso);
+  L.push('');
+  L.push('## RESPOSTAS ABERTAS');
+  [['Público','publico'],['Erros que mais corrige','erros'],['O que faz diferente','diferente'],
+   ['Resultado de orgulho','resultado'],['O que discorda no mercado','discordo'],
+   ['Horas por semana','horas'],['Tempo para design','design'],['Conforto com vídeo','video'],
+   ['O que abandonou','abandono']].forEach(([lab,k])=>{L.push('### '+lab);L.push(a[k]||'—');L.push('');});
+  return L.join('\n');
+}
+
+function enviar(f,d,P,F,FR,txt){
+  if(!ENDPOINT) return;
+  const a=store.a;
+  const payload={dados:{
+    nome:a.nome||'', email:a.email||'', prof:a.prof||'', conselho:a.conselho||'',
+    fac:f, exposicao:d.exposicao, vivo:d.vivo, acabamento:d.acabamento,
+    rotacao:d.rotacao, critica:d.critica, retrabalho:d.retrabalho?'sim':'não',
+    angulos:P.map(p=>p.ang.n).join(' | '),
+    sustenta:F.s.join('; '), abandona:F.n.join('; '),
+    ritmo:FR.base, piso:FR.piso,
+    publico:a.publico||'', erros:a.erros||'', diferente:a.diferente||'',
+    resultado:a.resultado||'', discordo:a.discordo||'', horas:a.horas||'',
+    design:a.design||'', video:a.video||'', abandono:a.abandono||'',
+    minutos:Math.round((Date.now()-store.t0)/60000)
+  }, relatorio:txt};
+  const el=document.getElementById('sendstatus');
+  fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+    .then(r=>r.json())
+    .then(j=>{ if(!j.ok) throw new Error(j.erro||'falha');
+      el.className='status ok';
+      el.textContent='Uma cópia do seu diagnóstico foi enviada para '+(a.email||'seu e-mail')+'.';
+      try{localStorage.removeItem(KEY);}catch(e){} })
+    .catch(()=>{ el.className='status fail';
+      el.textContent='Não conseguimos enviar a cópia por e-mail. Use o botão de baixar abaixo para guardar o seu diagnóstico.'; });
+}
+
+function render(){
+  const f=score(), d=derive(f), P=pilares(d), F=formatos(d), FR=frequencia(d);
+  const a=store.a;
+  let o='';
+  o+='<div class="sechead"><p class="eyebrow">Seu diagnóstico</p><h2>'+(a.nome||'').split(' ')[0]+', aqui está sua direção editorial</h2></div>';
+
+  o+='<h3>Seu perfil de comunicação</h3><table class="vartable">';
+  o+='<tr><td>Exposição pessoal</td><td>'+({alta:'Você sustenta falar de si e opinar em primeira pessoa.',média:'Exposição moderada — funciona em doses, não como base.',baixa:'Exposição pessoal te custa caro. Sua autoridade se constrói pelo processo e pelo técnico, não pela intimidade.'})[d.exposicao]+'</td></tr>';
+  o+='<tr><td>Presença ao vivo</td><td>'+({alta:'Ao vivo é seu formato mais barato. Use como pilar, não como obrigação.',média:'Você consegue, mas com preparo. Grave em lote em vez de improvisar.',baixa:'Ao vivo custa muito. Formato gravado e editável é onde você rende.'})[d.vivo]+'</td></tr>';
+  o+='<tr><td>Custo de acabamento visual</td><td>'+({proibitivo:'Alto o bastante para você adiar cronicamente. Isso não é indisciplina — é incompatibilidade. Template fixo ou terceirização, sem exceção.',alto:'Considerável. Monte um template uma vez e não mexa mais.',baixo:'Baixo. Você pode usar peças visuais sem prejuízo de ritmo.',terceirizado:'Resolvido — você já tem quem faça. Aproveite o formato.'})[d.acabamento]+'</td></tr>';
+  o+='<tr><td>Necessidade de novidade</td><td>'+({alta:'Alta. Você abandona por tédio antes de abandonar por dificuldade. Varie o assunto, nunca a estratégia.',média:'Moderada. Alterne formatos dentro dos mesmos pilares.',baixa:'Baixa — e isso é vantagem. Repetição constrói memória, e você sustenta melhor que a média.'})[d.rotacao]+'</td></tr>';
+  o+='<tr><td>Tolerância a crítica pública</td><td>'+({alta:'Alta. Você pode sustentar tese e debate.',média:'Moderada. Ancore a discordância em dado, não em opinião pessoal.',baixa:'Baixa. Crítica pública te custa dias de ruminação. Diferencie-se por observação e evidência, não por confronto.'})[d.critica]+'</td></tr>';
+  o+='</table>';
+
+  if(d.conselho) o+='<div class="warn"><strong>Você atua em profissão regulada.</strong><br>Antes de publicar qualquer conteúdo do Pilar 3, verifique as normas de publicidade do seu conselho. Em várias profissões é vedado prometer ou insinuar resultado, usar imagens comparativas de antes e depois, e divulgar preço, desconto ou promoção. Isso não elimina o pilar — muda o ângulo: caso relatado pelo processo, sem promessa e sem comparação visual.</div>';
+
+  o+='<h3 style="margin-top:30px">Seus 5 pilares</h3><p class="note">O pilar é fixo. O que muda de pessoa para pessoa é o ângulo — e o seu está calibrado abaixo. As perguntas-gatilho servem para você gerar os temas: cada resposta é um conteúdo.</p>';
+  P.forEach(p=>{
+    o+='<div class="pilar"><div class="tag">'+p.tag+'</div><h3>'+p.t+'</h3><p class="note" style="margin-bottom:0">'+p.o+'</p>';
+    o+='<div class="angulo"><strong>Seu ângulo: '+p.ang.n+'</strong>'+p.ang.x+'</div>';
+    o+='<p style="font-size:14px;font-weight:500;margin-bottom:4px">Perguntas-gatilho — cada resposta vira um conteúdo</p><ol class="gat">';
+    p.g.forEach(g=>o+='<li>'+g+'</li>');
+    o+='</ol></div>';
+  });
+
+  o+='<h3 style="margin-top:30px">Formatos</h3><div class="dropbox"><p style="font-weight:500;margin-bottom:8px">Você sustenta</p><ul>';
+  F.s.forEach(x=>o+='<li>'+x+'</li>');
+  o+='</ul></div><div class="dropbox"><p style="font-weight:500;margin-bottom:8px">Você vai abandonar — não insista</p><ul>';
+  F.n.forEach(x=>o+='<li>'+x+'</li>');
+  o+='</ul><p class="note" style="margin:10px 0 0">Isso não é limitação. É onde o custo por repetição é alto demais para você sustentar por meses — e estratégia que não se sustenta não produz resultado, por melhor que seja no papel.</p></div>';
+
+  o+='<h3 style="margin-top:30px">Frequência</h3><table class="vartable">';
+  o+='<tr><td>Ritmo alvo</td><td>'+FR.base+'</td></tr>';
+  o+='<tr><td>Piso — o mínimo do seu pior mês</td><td>'+FR.piso+'</td></tr></table>';
+  o+='<p class="note">O piso existe para a semana em que nada dá certo. Sem ele definido, quando você quebra o ritmo, você vai a zero — e é aí que a estratégia morre. Acima do piso, produza o quanto quiser.</p>';
+
+  if(a.abandono&&a.abandono.trim()){
+    o+='<div class="warn" style="margin-top:24px"><strong>Sobre o que você já abandonou</strong><br>Você escreveu: "'+a.abandono.trim().slice(0,220)+(a.abandono.length>220?'…':'')+'"<br><br>Compare com os formatos da lista "você vai abandonar". Se o que você largou está lá, o problema nunca foi constância — era incompatibilidade, e agora você tem o nome dela.</div>';
+  }
+
+  o+='<div id="sendstatus" class="status" style="display:none"></div>';
+  o+='<div style="margin-top:22px"><button id="dl">Baixar meu diagnóstico</button>';
+  o+='<button class="ghost" id="pr">Salvar em PDF ou imprimir</button></div>';
+  document.getElementById('result').innerHTML=o;
+  document.getElementById('result').style.display='block';
+
+  const txt=plain(f,d,P,F,FR);
+  document.getElementById('pr').addEventListener('click',()=>window.print());
+  document.getElementById('dl').addEventListener('click',()=>{
+    const slug=(a.nome||'diagnostico').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const bl=new Blob([txt],{type:'text/plain;charset=utf-8'});
+    const el=document.createElement('a'); el.href=URL.createObjectURL(bl);
+    el.download='direcao-editorial-'+slug+'.txt'; el.click();
+  });
+
+  if(ENDPOINT){
+    const st=document.getElementById('sendstatus');
+    st.style.display='block'; st.className='status'; st.textContent='Enviando uma cópia para o seu e-mail…';
+    enviar(f,d,P,F,FR,txt);
+  }
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+}
+
+document.getElementById('gen').addEventListener('click',()=>{showPending();if(answered()<36||!ctxOk())return;render();});
+upd();save();
+</script>
+</body>
+</html>

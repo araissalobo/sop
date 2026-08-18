@@ -531,11 +531,18 @@ function relatorioIaTextoClient_(r){
 }
 
 const LOAD_MSGS=[
-  'Entendendo o que você sabe, para quem você fala e como você sustenta conteúdo.',
-  'Cruzando sua experiência com os problemas que você mais resolve.',
-  'Separando assuntos que constroem autoridade dos que só ocupam calendário.',
-  'Calibrando os formatos para o seu jeito real de produzir.',
-  'Transformando suas respostas em pilares e ideias específicas.'
+  'Lendo sua profissão e especialidade...',
+  'Entendendo quem é a pessoa que você mais gosta de atender...',
+  'Identificando os erros que você mais corrige...',
+  'Analisando o que te diferencia dos colegas da sua área...',
+  'Processando o resultado que mais te deu orgulho...',
+  'Avaliando o que você discorda no seu mercado...',
+  'Cruzando sua disponibilidade com o que você consegue sustentar...',
+  'Calculando seu custo de produção e acabamento visual...',
+  'Definindo quais formatos fazem sentido para o seu perfil...',
+  'Montando os territórios de conteúdo para o seu negócio...',
+  'Escrevendo ideias específicas baseadas nas suas respostas...',
+  'Finalizando sua direção editorial personalizada...'
 ];
 let loadTimer=null;
 let loadSafetyTimer=null;
@@ -549,7 +556,7 @@ function loading(on){
     loadTimer=setInterval(()=>{
       i=(i+1)%LOAD_MSGS.length;
       document.getElementById('loadmsg').textContent=LOAD_MSGS[i];
-    },1800);
+    },5000);
     // [C2] Safety: se em 90s não responder, sai do loading e mostra fallback
     loadSafetyTimer=setTimeout(()=>{
       loading(false);

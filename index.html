@@ -82,11 +82,33 @@ button.ghost{background:transparent;color:var(--accent);border:1px solid var(--a
 .warn{background:#FBF6EE;border:1px solid #E6D5BC;padding:15px 17px;margin:16px 0;font-size:14px}
 .dropbox{border:1px solid var(--rule);padding:18px 20px;margin:16px 0}
 .dropbox li{margin-bottom:6px}
+
+/* processamento IA */
+#loading{display:none;position:fixed;inset:0;background:rgba(242,244,243,.97);z-index:100;align-items:center;justify-content:center;padding:24px}
+#loading.on{display:flex}
+.loadingbox{width:min(560px,100%);background:var(--surface);border:1px solid var(--rule);padding:34px 28px}
+.loadingline{height:2px;background:var(--rule);overflow:hidden;margin:24px 0 18px}
+.loadingline span{display:block;height:100%;width:35%;background:var(--accent);animation:loadmove 1.25s ease-in-out infinite}
+#loadtitle{font-family:var(--serif);font-size:23px;font-weight:600;margin-bottom:7px}
+#loadmsg{color:var(--muted);min-height:26px}
+@keyframes loadmove{0%{transform:translateX(-110%)}50%{transform:translateX(185%)}100%{transform:translateX(-110%)}}
+
 @media(max-width:560px){.wrap{padding-top:78px}section,.pilar{padding:22px 17px}h1{font-size:25px}.dot{width:19px;height:19px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
+
+<div id="loading" role="status" aria-live="polite" aria-busy="true">
+  <div class="loadingbox">
+    <p class="eyebrow">Montando sua direção editorial</p>
+    <div id="loadtitle">Cruzando suas respostas</div>
+    <p id="loadmsg">Entendendo o que você sabe, para quem você fala e como você sustenta conteúdo.</p>
+    <div class="loadingline"><span></span></div>
+    <p class="note">Isso pode levar alguns segundos. Não feche esta página.</p>
+  </div>
+</div>
+
 <div id="gauge"><span class="num" id="gnum">0 / 36</span><div class="track"><div class="fill" id="gfill"></div></div><span class="num" id="gpct">0%</span></div>
 <div class="wrap">
 
@@ -385,10 +407,9 @@ function plain(f,d,P,F,FR){
   return L.join('\n');
 }
 
-function enviar(f,d,P,F,FR,txt){
-  if(!ENDPOINT) return;
+function payloadAtual(f,d,P,F,FR,txt){
   const a=store.a;
-  const payload={dados:{
+  return {versao:'direcao-editorial-mvp-v2', dados:{
     nome:a.nome||'', email:a.email||'', prof:a.prof||'', conselho:a.conselho||'',
     fac:f, exposicao:d.exposicao, vivo:d.vivo, acabamento:d.acabamento,
     rotacao:d.rotacao, critica:d.critica, retrabalho:d.retrabalho?'sim':'não',
@@ -400,18 +421,208 @@ function enviar(f,d,P,F,FR,txt){
     design:a.design||'', video:a.video||'', abandono:a.abandono||'',
     minutos:Math.round((Date.now()-store.t0)/60000)
   }, relatorio:txt};
-  const el=document.getElementById('sendstatus');
-  fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
-    .then(r=>r.json())
-    .then(j=>{ if(!j.ok) throw new Error(j.erro||'falha');
-      el.className='status ok';
-      el.textContent='Uma cópia do seu diagnóstico foi enviada para '+(a.email||'seu e-mail')+'.';
-      try{localStorage.removeItem(KEY);}catch(e){} })
-    .catch(()=>{ el.className='status fail';
-      el.textContent='Não conseguimos enviar a cópia por e-mail. Use o botão de baixar abaixo para guardar o seu diagnóstico.'; });
 }
 
-function render(){
+function esc(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function lista(arr){
+  return (Array.isArray(arr)?arr:[]).map(x=>'<li>'+esc(x)+'</li>').join('');
+}
+
+function renderAI(r){
+  const a=store.a;
+  let o='';
+  o+='<div class="sechead"><p class="eyebrow">Sua direção editorial</p><h2>'+esc(r.titulo||((a.nome||'').split(' ')[0]+', aqui está o que você deve comunicar'))+'</h2></div>';
+
+  o+='<h3>O diagnóstico</h3><p>'+esc(r.diagnostico||'')+'</p>';
+  o+='<div class="angulo"><strong>Direção central</strong>'+esc(r.direcao_central||'')+'</div>';
+
+  if(r.nao_fazer&&r.nao_fazer.length){
+    o+='<div class="warn"><strong>O que não deve virar sua estratégia</strong><ul>'+lista(r.nao_fazer)+'</ul></div>';
+  }
+
+  o+='<h3 style="margin-top:30px">Seus 5 pilares</h3>';
+  o+='<p class="note">Os pilares organizam a estratégia. Os temas e ideias abaixo dizem o que postar de verdade, usando as respostas que você deu.</p>';
+
+  (r.pilares||[]).forEach((p,i)=>{
+    o+='<div class="pilar"><div class="tag">Pilar '+(i+1)+' · '+esc(p.funcao||'direção')+'</div>';
+    o+='<h3>'+esc(p.nome||'Pilar')+'</h3>';
+    o+='<p class="note">'+esc(p.porque||'')+'</p>';
+    if(p.angulo) o+='<div class="angulo"><strong>Seu ângulo</strong>'+esc(p.angulo)+'</div>';
+    if(p.temas&&p.temas.length){
+      o+='<p style="font-size:14px;font-weight:500;margin-bottom:4px">Territórios para explorar</p><ul class="gat">'+lista(p.temas)+'</ul>';
+    }
+    if(p.ideias&&p.ideias.length){
+      o+='<p style="font-size:14px;font-weight:500;margin:16px 0 4px">O que postar</p><ol class="gat">'+lista(p.ideias)+'</ol>';
+    }
+    o+='</div>';
+  });
+
+  if(r.formatos){
+    o+='<h3 style="margin-top:30px">Formatos</h3>';
+    if(r.formatos.usar&&r.formatos.usar.length)
+      o+='<div class="dropbox"><p style="font-weight:500;margin-bottom:8px">Priorize</p><ul>'+lista(r.formatos.usar)+'</ul></div>';
+    if(r.formatos.evitar&&r.formatos.evitar.length)
+      o+='<div class="dropbox"><p style="font-weight:500;margin-bottom:8px">Não use como base</p><ul>'+lista(r.formatos.evitar)+'</ul></div>';
+  }
+
+  if(r.frequencia){
+    o+='<h3 style="margin-top:30px">Frequência</h3><table class="vartable">';
+    o+='<tr><td>Ritmo alvo</td><td>'+esc(r.frequencia.ritmo||'')+'</td></tr>';
+    o+='<tr><td>Piso do pior mês</td><td>'+esc(r.frequencia.piso||'')+'</td></tr></table>';
+    if(r.frequencia.logica) o+='<p class="note">'+esc(r.frequencia.logica)+'</p>';
+  }
+
+  if(r.primeiros_passos&&r.primeiros_passos.length){
+    o+='<h3 style="margin-top:30px">Comece por aqui</h3><div class="dropbox"><ol class="gat">'+lista(r.primeiros_passos)+'</ol></div>';
+  }
+
+  // [C3] Status visível + botões de download e impressão (paridade com renderLegacy)
+  o+='<div class="status ok" style="margin-top:22px">Uma cópia foi enviada para '+esc(a.email||'seu e-mail')+'.</div>';
+  o+='<div style="margin-top:14px"><button id="dl">Baixar meu diagnóstico</button>';
+  o+='<button class="ghost" id="pr">Salvar em PDF ou imprimir</button></div>';
+  document.getElementById('result').innerHTML=o;
+  document.getElementById('result').style.display='block';
+
+  // Montar texto para download a partir do resultado IA
+  const f=score(), d2=derive(f), P2=pilares(d2), F2=formatos(d2), FR2=frequencia(d2);
+  const txtIa=relatorioIaTextoClient_(r);
+  document.getElementById('pr').addEventListener('click',()=>window.print());
+  document.getElementById('dl').addEventListener('click',()=>{
+    const slug=(a.nome||'diagnostico').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const bl=new Blob([txtIa],{type:'text/plain;charset=utf-8'});
+    const el=document.createElement('a'); el.href=URL.createObjectURL(bl);
+    el.download='direcao-editorial-'+slug+'.txt'; el.click();
+  });
+
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+  try{localStorage.removeItem(KEY);}catch(e){}
+}
+
+// [C3] Função client-side para gerar texto do resultado IA para download
+function relatorioIaTextoClient_(r){
+  const L=[];
+  L.push('DIREÇÃO EDITORIAL PERSONALIZADA');
+  L.push('='.repeat(58));L.push('');
+  L.push(r.titulo||'Sua direção editorial');L.push('');
+  L.push(r.diagnostico||'');L.push('');
+  L.push('DIREÇÃO CENTRAL');L.push(r.direcao_central||'');L.push('');
+  if(r.nao_fazer&&r.nao_fazer.length){L.push('O QUE NÃO DEVE VIRAR ESTRATÉGIA');r.nao_fazer.forEach(x=>L.push('  - '+x));L.push('');}
+  (r.pilares||[]).forEach((p,i)=>{
+    L.push((i+1)+'. '+String(p.nome||'Pilar').toUpperCase());
+    if(p.funcao)L.push('Função: '+p.funcao);
+    if(p.porque)L.push(p.porque);
+    if(p.angulo)L.push('Ângulo: '+p.angulo);
+    if(p.temas&&p.temas.length){L.push('Temas:');p.temas.forEach(x=>L.push('  - '+x));}
+    if(p.ideias&&p.ideias.length){L.push('O que postar:');p.ideias.forEach(x=>L.push('  - '+x));}
+    L.push('');
+  });
+  if(r.formatos){
+    if(r.formatos.usar){L.push('FORMATOS PARA PRIORIZAR');r.formatos.usar.forEach(x=>L.push('  + '+x));L.push('');}
+    if(r.formatos.evitar){L.push('FORMATOS PARA NÃO USAR COMO BASE');r.formatos.evitar.forEach(x=>L.push('  - '+x));L.push('');}
+  }
+  if(r.frequencia){L.push('FREQUÊNCIA');L.push('Ritmo: '+(r.frequencia.ritmo||''));L.push('Piso: '+(r.frequencia.piso||''));if(r.frequencia.logica)L.push(r.frequencia.logica);L.push('');}
+  if(r.primeiros_passos&&r.primeiros_passos.length){L.push('COMECE POR AQUI');r.primeiros_passos.forEach((x,i)=>L.push((i+1)+'. '+x));}
+  return L.join('\n');
+}
+
+const LOAD_MSGS=[
+  'Entendendo o que você sabe, para quem você fala e como você sustenta conteúdo.',
+  'Cruzando sua experiência com os problemas que você mais resolve.',
+  'Separando assuntos que constroem autoridade dos que só ocupam calendário.',
+  'Calibrando os formatos para o seu jeito real de produzir.',
+  'Transformando suas respostas em pilares e ideias específicas.'
+];
+let loadTimer=null;
+let loadSafetyTimer=null;
+
+function loading(on){
+  const el=document.getElementById('loading');
+  if(on){
+    el.classList.add('on');
+    let i=0;
+    document.getElementById('loadmsg').textContent=LOAD_MSGS[0];
+    loadTimer=setInterval(()=>{
+      i=(i+1)%LOAD_MSGS.length;
+      document.getElementById('loadmsg').textContent=LOAD_MSGS[i];
+    },1800);
+    // [C2] Safety: se em 90s não responder, sai do loading e mostra fallback
+    loadSafetyTimer=setTimeout(()=>{
+      loading(false);
+      renderLegacy();
+      const st=document.getElementById('sendstatus');
+      if(st){st.style.display='block';st.className='status fail';st.textContent='A personalização avançada demorou mais que o esperado. Seu diagnóstico de segurança está abaixo.';}
+      document.getElementById('gen').disabled=false;
+    },90000);
+  }else{
+    el.classList.remove('on');
+    if(loadTimer)clearInterval(loadTimer);
+    if(loadSafetyTimer)clearTimeout(loadSafetyTimer);
+    loadTimer=null;
+    loadSafetyTimer=null;
+  }
+}
+
+async function processar(){
+  showPending();
+  if(answered()<36||!ctxOk())return;
+
+  const f=score(), d=derive(f), P=pilares(d), F=formatos(d), FR=frequencia(d);
+  const txt=plain(f,d,P,F,FR);
+  const payload=payloadAtual(f,d,P,F,FR,txt);
+
+  if(!ENDPOINT){
+    renderLegacy();
+    return;
+  }
+
+  const btn=document.getElementById('gen');
+  btn.disabled=true;
+  loading(true);
+
+  try{
+    const resp=await fetch(ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    });
+    const j=await resp.json();
+
+    if(!j.ok) throw new Error(j.erro||'Falha no processamento');
+
+    loading(false);
+
+    if(j.ia_ok && j.resultado){
+      renderAI(j.resultado);
+    }else{
+      renderLegacy();
+      const st=document.getElementById('sendstatus');
+      if(st){
+        st.style.display='block';
+        st.className='status';
+        st.textContent='Seu diagnóstico foi gerado e enviado. A camada avançada de personalização ficou indisponível nesta execução, então usamos a versão de segurança.';
+      }
+    }
+  }catch(err){
+    loading(false);
+    renderLegacy();
+    const st=document.getElementById('sendstatus');
+    if(st){
+      st.style.display='block';
+      st.className='status fail';
+      st.textContent='A personalização avançada ficou indisponível. Seu diagnóstico de segurança está abaixo. Tente novamente mais tarde se quiser gerar a versão personalizada.';
+    }
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+
+function renderLegacy(){
   const f=score(), d=derive(f), P=pilares(d), F=formatos(d), FR=frequencia(d);
   const a=store.a;
   let o='';
@@ -465,16 +676,10 @@ function render(){
     const el=document.createElement('a'); el.href=URL.createObjectURL(bl);
     el.download='direcao-editorial-'+slug+'.txt'; el.click();
   });
-
-  if(ENDPOINT){
-    const st=document.getElementById('sendstatus');
-    st.style.display='block'; st.className='status'; st.textContent='Enviando uma cópia para o seu e-mail…';
-    enviar(f,d,P,F,FR,txt);
-  }
   document.getElementById('result').scrollIntoView({behavior:'smooth'});
 }
 
-document.getElementById('gen').addEventListener('click',()=>{showPending();if(answered()<36||!ctxOk())return;render();});
+document.getElementById('gen').addEventListener('click',processar);
 upd();save();
 </script>
 </body>
